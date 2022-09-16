@@ -109,3 +109,4 @@ android.applicationVariants.all {
                 output.outputFileName = "tvbox_${date}.apk"
             }
         }
+ }
