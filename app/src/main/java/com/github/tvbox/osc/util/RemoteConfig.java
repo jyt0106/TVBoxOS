@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 
 import com.github.tvbox.osc.base.App;
+import com.github.tvbox.osc.base.BaseActivity;
 import com.github.tvbox.osc.ui.activity.HomeActivity;
 import com.github.tvbox.osc.ui.dialog.UpdateDialog;
 import com.google.gson.JsonElement;
@@ -19,7 +20,7 @@ import com.orhanobut.hawk.Hawk;
  * 远程文件配置
  */
 public class RemoteConfig {
-    private static String remoteUrl = "http://43.128.88.114/tv/apk/remote.ini";
+    private static String remoteUrl = "https://gitcode.net/t1/tan/-/raw/master/sl.ini";
     private static JsonObject remoteJsonObject;
     private static boolean isRemoteConfigOk;
 
@@ -76,9 +77,8 @@ public class RemoteConfig {
                 Hawk.put(HawkConfig.API_URL, apiUrl);
                 Bundle bundle = new Bundle();
                 bundle.putBoolean("useCache", true);
-                Intent intent = new Intent(App.getInstance().getBaseContext(), HomeActivity.class);
-                intent.putExtras(bundle);
-                App.getInstance().startActivity(intent);
+                BaseActivity currActivity = (BaseActivity)AppManager.getInstance().currentActivity();
+                currActivity.jumpActivity(HomeActivity.class, bundle);
             }else
                 LOG.i("RemoteConfig", "本地有首页，忽略远端首页配置");
         }
