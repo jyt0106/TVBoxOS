@@ -45,6 +45,8 @@ import java.util.List;
 import okhttp3.HttpUrl;
 import tv.danmaku.ijk.media.player.IjkMediaPlayer;
 
+import com.github.tvbox.osc.ui.dialog.UpdateDialog;
+
 /**
  * @author pj567
  * @date :2020/12/23
