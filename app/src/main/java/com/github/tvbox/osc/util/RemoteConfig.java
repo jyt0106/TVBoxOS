@@ -1,10 +1,9 @@
 package com.github.tvbox.osc.util;
 
-import android.content.Intent;
+import android.content.Context;
 import android.os.Bundle;
 
 import com.github.other.xunfei.WebIATWS;
-import com.github.tvbox.osc.base.App;
 import com.github.tvbox.osc.base.BaseActivity;
 import com.github.tvbox.osc.ui.activity.HomeActivity;
 import com.github.tvbox.osc.ui.dialog.UpdateDialog;
@@ -21,12 +20,21 @@ import com.orhanobut.hawk.Hawk;
  * 远程文件配置
  */
 public class RemoteConfig {
-    //private static String remoteUrl = "http://43.128.88.114/tv/apk/remote.ini";
-    private static String remoteUrl = "http://mayishidai.cn/tv/apk/remote.ini";
+    private static String remoteUrl = "";
     private static JsonObject remoteJsonObject;
     private static boolean isRemoteConfigOk;
+    private static Context mContext;
 
-    public static void Init(){
+    public static void Init(Context mContext){
+        RemoteConfig.mContext = mContext;
+        if (ToolUtils.isApkInDebug(mContext)){
+            remoteUrl = "http://a.mayishidai.cn:7080/tv/apk/remote.ini";
+        }else{
+            remoteUrl = "https://mayishidai.cn/tv/apk/remote.ini";
+        }
+        LOG.e("RemoteConfig",
+                ToolUtils.isApkInDebug(mContext) ? "当前处于【调试】模式":"当前处于【正式】模式",
+                "远程配置地址", remoteUrl);
         isRemoteConfigOk = false;
         OkGo.<String>get(remoteUrl).execute(new AbsCallback<String>() {
             @Override
@@ -81,60 +89,65 @@ public class RemoteConfig {
         // region 默认API地址
         if (GetValue(RemoteConfigName.APIUrl)!=null && !GetValue(RemoteConfigName.APIUrl).getAsString().isEmpty()) {
             String remoteValue = GetValue(RemoteConfigName.APIUrl).getAsString();
-            if(SetRemoteHawkConfig(HawkConfig.API_URL, remoteValue,"默认首页API")){
-                Bundle bundle = new Bundle();
-                bundle.putBoolean("useCache", true);
-                BaseActivity currActivity = (BaseActivity)AppManager.getInstance().currentActivity();
-                currActivity.jumpActivity(HomeActivity.class, bundle);
+            boolean forceChangeAPIUrl = GetValue(RemoteConfigName.ForceChangeAPIUrl)!=null && GetValue(RemoteConfigName.ForceChangeAPIUrl).getAsBoolean();
+            if (forceChangeAPIUrl)
+                LOG.e("RemoteConfig", "远端强制替换APIUrl地址");
+            if(SetRemoteHawkConfig(HawkConfig.API_URL, remoteValue,"默认首页API", forceChangeAPIUrl)){
+                if (AppManager.getInstance().isActivity()) {
+                    Bundle bundle = new Bundle();
+                    bundle.putBoolean("useCache", true);
+                    BaseActivity currActivity = (BaseActivity) AppManager.getInstance().currentActivity();
+                    currActivity.jumpActivity(HomeActivity.class, bundle);
+                }
             }
         }
         // endregion 默认API地址
         // region 默认首页数据源
         if (GetValue(RemoteConfigName.HomeID)!=null) {
             String remoteValue =  GetValue(RemoteConfigName.HomeID).getAsString();
-            SetRemoteHawkConfig(HawkConfig.HOME_API, remoteValue,"默认首页数据源");
+            SetRemoteHawkConfig(HawkConfig.HOME_API, remoteValue,"默认首页数据源", false);
         }
         // endregion 默认首页数据源
         // region 默认首页推荐
         if (GetValue(RemoteConfigName.HomeShowType)!=null) {
             int remoteValue =  GetValue(RemoteConfigName.HomeShowType).getAsInt();
-            SetRemoteHawkConfig(HawkConfig.HOME_REC, remoteValue,"默认首页推荐");
+            SetRemoteHawkConfig(HawkConfig.HOME_REC, remoteValue,"默认首页推荐", false);
         }
         // endregion 默认首页推荐
         // region 默认搜索展示
         if (GetValue(RemoteConfigName.HomeSearchType)!=null) {
             int remoteValue =  GetValue(RemoteConfigName.HomeSearchType).getAsInt();
-            SetRemoteHawkConfig(HawkConfig.SEARCH_VIEW, remoteValue,"默认搜索展示");
+            SetRemoteHawkConfig(HawkConfig.SEARCH_VIEW, remoteValue,"默认搜索展示", false);
         }
         // endregion 默认搜索展示
         // region 默认聚合模式
         if (GetValue(RemoteConfigName.HomeFastSearch)!=null) {
             boolean remoteValue =  GetValue(RemoteConfigName.HomeFastSearch).getAsBoolean();
-            SetRemoteHawkConfig(HawkConfig.FAST_SEARCH_MODE, remoteValue,"默认聚合模式");
+            SetRemoteHawkConfig(HawkConfig.FAST_SEARCH_MODE, remoteValue,"默认聚合模式", false);
         }
         // endregion 默认聚合模式
         // region 默认安全DNS
         if (GetValue(RemoteConfigName.HomeDNSType)!=null) {
             int remoteValue =  GetValue(RemoteConfigName.HomeDNSType).getAsInt();
-            SetRemoteHawkConfig(HawkConfig.DOH_URL, remoteValue,"默认安全DNS");
+            SetRemoteHawkConfig(HawkConfig.DOH_URL, remoteValue,"默认安全DNS", false);
         }
         // endregion 默认安全DNS
         // region 默认历史记录
         if (GetValue(RemoteConfigName.HomeHistoryNum)!=null) {
             int remoteValue =  GetValue(RemoteConfigName.HomeHistoryNum).getAsInt();
-            SetRemoteHawkConfig(HawkConfig.HISTORY_NUM, remoteValue,"默认历史记录");
+            SetRemoteHawkConfig(HawkConfig.HISTORY_NUM, remoteValue,"默认历史记录", false);
         }
         // endregion 默认历史记录
         // region 默认画面缩放
         if (GetValue(RemoteConfigName.HomePictureZoom)!=null) {
             int remoteValue =  GetValue(RemoteConfigName.HomePictureZoom).getAsInt();
-            SetRemoteHawkConfig(HawkConfig.PLAY_SCALE, remoteValue,"默认画面缩放");
+            SetRemoteHawkConfig(HawkConfig.PLAY_SCALE, remoteValue,"默认画面缩放", false);
         }
         // endregion 默认画面缩放
         // region 默认窗口预览
         if (GetValue(RemoteConfigName.HomeWindowPreview)!=null) {
             boolean remoteValue =  GetValue(RemoteConfigName.HomeWindowPreview).getAsBoolean();
-            SetRemoteHawkConfig(HawkConfig.SHOW_PREVIEW, remoteValue,"默认窗口预览");
+            SetRemoteHawkConfig(HawkConfig.SHOW_PREVIEW, remoteValue,"默认窗口预览", false);
         }
         // endregion 默认窗口预览
 
@@ -166,32 +179,32 @@ public class RemoteConfig {
             //频道名字
             if (GetValue(RemoteConfigName.Live, RemoteConfigName.Live_Channel)!=null) {
                 String remoteValue = GetValue(RemoteConfigName.Live, RemoteConfigName.Live_Channel).getAsString();
-                SetRemoteHawkConfig(HawkConfig.LIVE_CHANNEL, remoteValue,"频道名字");
+                SetRemoteHawkConfig(HawkConfig.LIVE_CHANNEL, remoteValue,"频道名字", false);
             }
             // 换台反转
             if (GetValue(RemoteConfigName.Live, RemoteConfigName.Live_ChannelReverse)!=null) {
                 Boolean remoteValue = GetValue(RemoteConfigName.Live, RemoteConfigName.Live_ChannelReverse).getAsBoolean();
-                SetRemoteHawkConfig(HawkConfig.LIVE_CHANNEL_REVERSE, remoteValue,"换台反转");
+                SetRemoteHawkConfig(HawkConfig.LIVE_CHANNEL_REVERSE, remoteValue,"换台反转", false);
             }
             // 跨选分类
             if (GetValue(RemoteConfigName.Live, RemoteConfigName.Live_CrossGroup)!=null) {
                 boolean remoteValue = GetValue(RemoteConfigName.Live, RemoteConfigName.Live_CrossGroup).getAsBoolean();
-                SetRemoteHawkConfig(HawkConfig.LIVE_CROSS_GROUP, remoteValue,"跨选分类");
+                SetRemoteHawkConfig(HawkConfig.LIVE_CROSS_GROUP, remoteValue,"跨选分类", false);
             }
             // 超时换源时间
             if (GetValue(RemoteConfigName.Live, RemoteConfigName.Live_ConnectTimeout)!=null) {
                 int remoteValue = GetValue(RemoteConfigName.Live, RemoteConfigName.Live_ConnectTimeout).getAsInt();
-                SetRemoteHawkConfig(HawkConfig.LIVE_CONNECT_TIMEOUT, remoteValue,"超时换源时间");
+                SetRemoteHawkConfig(HawkConfig.LIVE_CONNECT_TIMEOUT, remoteValue,"超时换源时间", false);
             }
             // 显示网速
             if (GetValue(RemoteConfigName.Live, RemoteConfigName.Live_ShowNetSpeed)!=null) {
                 boolean remoteValue = GetValue(RemoteConfigName.Live, RemoteConfigName.Live_ShowNetSpeed).getAsBoolean();
-                SetRemoteHawkConfig(HawkConfig.LIVE_SHOW_NET_SPEED, remoteValue,"显示网速");
+                SetRemoteHawkConfig(HawkConfig.LIVE_SHOW_NET_SPEED, remoteValue,"显示网速", false);
             }
             // 显示时间
             if (GetValue(RemoteConfigName.Live, RemoteConfigName.Live_ShowTime)!=null) {
                 boolean remoteValue = GetValue(RemoteConfigName.Live, RemoteConfigName.Live_ShowTime).getAsBoolean();
-                SetRemoteHawkConfig(HawkConfig.LIVE_SHOW_TIME, remoteValue,"显示时间");
+                SetRemoteHawkConfig(HawkConfig.LIVE_SHOW_TIME, remoteValue,"显示时间", false);
             }
         }
         //endregion
@@ -210,10 +223,10 @@ public class RemoteConfig {
         // endregion 默认更新地址
     }
 
-    private static <T> boolean SetRemoteHawkConfig(String hawkConfigName, T remoteValue, String remoteTips){
+    private static <T> boolean SetRemoteHawkConfig(String hawkConfigName, T remoteValue, String remoteTips, boolean forceSet){
         boolean isPut = false;
         T oldValue = null;
-        if (Hawk.contains(hawkConfigName)) {
+        if (Hawk.contains(hawkConfigName) && !forceSet) {
             oldValue = Hawk.get(hawkConfigName);
             if (remoteValue instanceof Integer) {
                 if (Hawk.get(hawkConfigName, 0) == 0)
