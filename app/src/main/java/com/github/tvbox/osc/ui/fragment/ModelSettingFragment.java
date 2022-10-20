@@ -16,6 +16,7 @@ import com.github.tvbox.osc.base.BaseActivity;
 import com.github.tvbox.osc.base.BaseLazyFragment;
 import com.github.tvbox.osc.bean.IJKCode;
 import com.github.tvbox.osc.bean.SourceBean;
+import com.github.tvbox.osc.data.CustomData;
 import com.github.tvbox.osc.ui.activity.HomeActivity;
 import com.github.tvbox.osc.ui.activity.SettingActivity;
 import com.github.tvbox.osc.ui.adapter.SelectDialogAdapter;
@@ -29,8 +30,10 @@ import com.github.tvbox.osc.ui.dialog.XWalkInitDialog;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.HistoryHelper;
+import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.util.OkGoHelper;
 import com.github.tvbox.osc.util.PlayerHelper;
+import com.github.tvbox.osc.util.TextToSpeechUtils;
 import com.lzy.okgo.OkGo;
 import com.lzy.okgo.callback.FileCallback;
 import com.lzy.okgo.model.Progress;
@@ -69,6 +72,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
     private TextView tvShowPreviewText;
     private TextView tvShowWallpaperIndexText;
     private TextView tvFastSearchText;
+    private TextView appModelSelectText;
 
     public static ModelSettingFragment newInstance() {
         return new ModelSettingFragment().setArguments();
@@ -103,6 +107,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
         tvHistoryNum = findViewById(R.id.tvHistoryNum);
         tvSearchView = findViewById(R.id.tvSearchView);
         tvShowWallpaperIndexText = findViewById(R.id.showWallpaperIndex);
+        appModelSelectText = findViewById(R.id.appModelSelect);
         tvMediaCodec.setText(Hawk.get(HawkConfig.IJK_CODEC, ""));
         tvDebugOpen.setText(Hawk.get(HawkConfig.DEBUG_OPEN, false) ? "已打开" : "已关闭");
         tvParseWebView.setText(Hawk.get(HawkConfig.PARSE_WEBVIEW, true) ? "系统自带" : "XWalkView");
@@ -117,6 +122,43 @@ public class ModelSettingFragment extends BaseLazyFragment {
         tvPlay.setText(PlayerHelper.getPlayerName(Hawk.get(HawkConfig.PLAY_TYPE, 0)));
         tvRender.setText(PlayerHelper.getRenderName(Hawk.get(HawkConfig.PLAY_RENDER, 0)));
         tvShowWallpaperIndexText.setText(ApiConfig.get().getShowWallpaperIndex());
+        appModelSelectText.setText(CustomData.getInstance().GetAppModelTypeName());
+        findViewById(R.id.appModel).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                FastClickCheckUtil.check(view);
+                int defaultPos = CustomData.getInstance().GetAppModelType().ordinal();
+                ArrayList<Integer> types = new ArrayList<>();
+                types.add(CustomData.AppModelType.YOUND.ordinal());
+                types.add(CustomData.AppModelType.AGED.ordinal());
+                SelectDialog<Integer> dialog = new SelectDialog<>(mActivity);
+                dialog.setTip("请选择APP模式");
+                dialog.setAdapter(new SelectDialogAdapter.SelectDialogInterface<Integer>() {
+                    @Override
+                    public void click(Integer value, int pos) {
+                        CustomData.getInstance().SetAppModelType(CustomData.AppModelType.values()[pos]);
+                        appModelSelectText.setText(CustomData.getInstance().GetAppModelTypeName());
+                        dialog.dismiss();
+                    }
+
+                    @Override
+                    public String getDisplay(Integer val) {
+                        return CustomData.getInstance().GetAppModelTypeName(CustomData.AppModelType.values()[val]);
+                    }
+                }, new DiffUtil.ItemCallback<Integer>() {
+                    @Override
+                    public boolean areItemsTheSame(@NonNull @NotNull Integer oldItem, @NonNull @NotNull Integer newItem) {
+                        return oldItem.intValue() == newItem.intValue();
+                    }
+
+                    @Override
+                    public boolean areContentsTheSame(@NonNull @NotNull Integer oldItem, @NonNull @NotNull Integer newItem) {
+                        return oldItem.intValue() == newItem.intValue();
+                    }
+                }, types, defaultPos);
+                dialog.show();
+            }
+        });
         findViewById(R.id.llDebug).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -617,6 +659,15 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 tvFastSearchText.setText(Hawk.get(HawkConfig.FAST_SEARCH_MODE, false) ? "已开启" : "已关闭");
             }
         });
+
+//        LOG.e("开始语音转换");
+//        TextToSpeechUtils.getInstance().initTextToSpeech(mActivity);
+//        TextToSpeechUtils.getInstance().close();
+//        TextToSpeechUtils.getInstance().speak("开始虹膜注册");
+//        TextToSpeechUtils.getInstance().close();
+//        TextToSpeechUtils.getInstance().speak("spek in english");
+//        TextToSpeechUtils.getInstance().close();
+        LOG.e("语音有问题，无法播放，暂时关闭");
     }
 
     @Override

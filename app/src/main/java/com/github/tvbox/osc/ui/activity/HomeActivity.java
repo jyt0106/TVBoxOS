@@ -8,6 +8,9 @@ import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.KeyEvent;
@@ -42,6 +45,7 @@ import com.github.tvbox.osc.ui.adapter.SelectDialogAdapter;
 import com.github.tvbox.osc.ui.adapter.SortAdapter;
 import com.github.tvbox.osc.ui.dialog.SelectDialog;
 import com.github.tvbox.osc.ui.dialog.TipDialog;
+import com.github.tvbox.osc.ui.dialog.XWalkInitDialog;
 import com.github.tvbox.osc.ui.fragment.GridFragment;
 import com.github.tvbox.osc.ui.fragment.UserFragment;
 import com.github.tvbox.osc.ui.tv.widget.DefaultTransformer;
@@ -52,6 +56,7 @@ import com.github.tvbox.osc.util.AppManager;
 import com.github.tvbox.osc.util.DefaultConfig;
 import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.LOG;
+import com.github.tvbox.osc.util.RemoteConfig;
 import com.github.tvbox.osc.viewmodel.SourceViewModel;
 import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
@@ -74,6 +79,7 @@ public class HomeActivity extends BaseActivity {
     private LinearLayout topLayout;
     private LinearLayout contentLayout;
     private TextView tvDate;
+    private TextView tvVersion;
     private TextView tvName;
     private TvRecyclerView mGridView;
     private NoScrollViewPager mViewPager;
@@ -125,6 +131,7 @@ public class HomeActivity extends BaseActivity {
     private void initView() {
         this.topLayout = findViewById(R.id.topLayout);
         this.tvDate = findViewById(R.id.tvDate);
+        this.tvVersion = findViewById(R.id.tvVersion);
         this.tvName = findViewById(R.id.tvName);
         this.contentLayout = findViewById(R.id.contentLayout);
         this.mGridView = findViewById(R.id.mGridView);
@@ -226,6 +233,8 @@ public class HomeActivity extends BaseActivity {
         });
         setLoadSir(this.contentLayout);
         //mHandler.postDelayed(mFindFocus, 500);
+
+        this.tvVersion.setText("V:"+DefaultConfig.getAppVersionName(this));
     }
 
     private void initViewModel() {
@@ -386,6 +395,28 @@ public class HomeActivity extends BaseActivity {
                 });
             }
         }, this);
+
+        // region 如果5.0版本以下，自动下载XW
+        try{
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP && Hawk.get(HawkConfig.PARSE_WEBVIEW, true)){
+                LOG.d(this, "Android5.0及以下版本，自动下载XWalkView嗅探");
+                Toast.makeText(this, "Android5.0及以下版本，自动下载XWalkView嗅探", Toast.LENGTH_LONG).show();
+                XWalkInitDialog dialog = new XWalkInitDialog(this);
+                dialog.setOnListener(new XWalkInitDialog.OnListener() {
+                    @Override
+                    public void onchange() {
+                        Hawk.put(HawkConfig.PARSE_WEBVIEW, false);
+                    }
+                });
+                dialog.show();
+                dialog.OnPerformClick();
+            }else{
+                LOG.d(this, "非Android5.0及以下版本，使用系统嗅探");
+            }
+        }catch (Exception ex){
+            ex.printStackTrace();
+        }
+        // endregion
     }
 
     private void initViewPager(AbsSortXml absXml) {
