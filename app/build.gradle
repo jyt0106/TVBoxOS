@@ -8,7 +8,7 @@ android {
         minSdkVersion 16
         targetSdkVersion 26
         versionCode 1
-        versionName '1.0.5'
+        versionName '1.0.17'
         multiDexEnabled true
         //设置room的Schema的位置
         javaCompileOptions {
@@ -69,11 +69,12 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-extensions:2.2.0'
     implementation 'androidx.recyclerview:recyclerview:1.1.0'
     implementation files('libs\\thunder.jar')
+    implementation files('libs\\commons-lang3-3.12.0.jar')
 
+    implementation 'com.squareup.okhttp3:okhttp:3.12.1'
     annotationProcessor 'androidx.room:room-compiler:2.3.0'
     implementation 'androidx.room:room-runtime:2.3.0'
     implementation 'androidx.multidex:multidex:2.0.1'
-    implementation 'com.squareup.okhttp3:okhttp:3.12.1'
     implementation 'com.squareup.okio:okio:2.6.0'
     implementation 'com.github.CymChad:BaseRecyclerViewAdapterHelper:2.9.45-androidx'
     implementation 'com.kingja.loadsir:loadsir:1.3.8'
@@ -87,6 +88,7 @@ dependencies {
     implementation 'com.orhanobut:hawk:2.0.1'
 
     implementation project(":player")
+    implementation project(":quickjs")
 
     implementation('org.xwalk:xwalk_shared_library:23.53.589.4') {
         exclude group: 'com.android.support'
@@ -100,17 +102,20 @@ dependencies {
     implementation 'com.github.hedzr:android-file-chooser:v1.2.0-final'
     implementation 'commons-io:commons-io:2.11.0'
     implementation 'com.googlecode.juniversalchardet:juniversalchardet:1.0.3'
+
+    implementation 'com.tencent.bugly:crashreport:latest.release' //最新Bugly SDK
+    //implementation 'com.qiniu:qiniu-android-sdk:latest.release' //最新七牛 SDK
 }
 
 
 android.applicationVariants.all {
     variant ->
         variant.outputs.all { output ->
-            def date = new Date().format("yyyy年MM月dd日", TimeZone.getTimeZone("GMT+08"))
+            // def date = new Date().format("yyyy_MM_dd", TimeZone.getTimeZone("GMT+08"))
             if (variant.buildType.name == 'debug'){
-                output.outputFileName = "tvbox_${android.defaultConfig.versionName}_${date}_debug.apk"
+                output.outputFileName = "tvbox_${android.defaultConfig.versionName}_debug.apk"
             }else if (variant.buildType.name == 'release'){
-                output.outputFileName = "tvbox_${date}.apk"
+                output.outputFileName = "tvbox_${android.defaultConfig.versionName}.apk"
                 println(String.format("UpdateUrl->https://mayishidai.cn/tv/apk/%s", URLEncoder.encode(output.outputFileName, "UTF-8")));
             }
         }

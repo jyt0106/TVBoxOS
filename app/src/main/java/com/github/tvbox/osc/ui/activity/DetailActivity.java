@@ -3,7 +3,9 @@ package com.github.tvbox.osc.ui.activity;
 import android.annotation.SuppressLint;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.graphics.Rect;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.Html;
 import android.text.TextUtils;
@@ -24,8 +26,10 @@ import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.chad.library.adapter.base.BaseQuickAdapter;
+import com.chad.library.adapter.base.BaseViewHolder;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.api.ApiConfig;
+import com.github.tvbox.osc.base.App;
 import com.github.tvbox.osc.base.BaseActivity;
 import com.github.tvbox.osc.bean.AbsXml;
 import com.github.tvbox.osc.bean.Movie;
@@ -38,10 +42,13 @@ import com.github.tvbox.osc.ui.adapter.SeriesAdapter;
 import com.github.tvbox.osc.ui.adapter.SeriesFlagAdapter;
 import com.github.tvbox.osc.ui.dialog.QuickSearchDialog;
 import com.github.tvbox.osc.ui.fragment.PlayFragment;
+import com.github.tvbox.osc.util.AppManager;
 import com.github.tvbox.osc.util.DefaultConfig;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
+import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.util.MD5;
+import com.github.tvbox.osc.util.SearchHelper;
 import com.github.tvbox.osc.viewmodel.SourceViewModel;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -66,6 +73,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -107,11 +116,13 @@ public class DetailActivity extends BaseActivity {
     private TextView tvCollect;
     private TvRecyclerView mGridViewFlag;
     private TvRecyclerView mGridView;
+    private TvRecyclerView mSeriesGroupView;
     private LinearLayout mEmptyPlayList;
     private SourceViewModel sourceViewModel;
     private Movie.Video mVideo;
     private VodInfo vodInfo;
     private SeriesFlagAdapter seriesFlagAdapter;
+    private BaseQuickAdapter<String, BaseViewHolder> seriesGroupAdapter;
     private SeriesAdapter seriesAdapter;
     public String vodId;
     public String sourceKey;
@@ -121,6 +132,11 @@ public class DetailActivity extends BaseActivity {
     private String preFlag="";
     private boolean firstReverse;
     private V7GridLayoutManager mGridViewLayoutMgr = null;
+    private Thread focusChechThread;
+    private HashMap<String, String> mCheckSources = null;
+    private final ArrayList<String> seriesGroupOptions = new ArrayList<>();
+    private View currentSeriesGroupView;
+    private int GroupCount = 24 ;
 
     @Override
     protected int getLayoutResID() {
@@ -129,6 +145,39 @@ public class DetailActivity extends BaseActivity {
 
     @Override
     protected void init() {
+        Runnable run2 = new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    try {
+                        Thread.sleep(1000);
+                        View rootview = getWindow().getDecorView();
+                        View currentView = rootview.findFocus();
+                        //TAG为当前Activity名称
+                        //LOG.d("DetailActivity", "当前焦点所在View："+currentView.toString());
+                        if (currentView!=null && currentView.toString().startsWith("org.xwalk.core.internal.XWalkContentView")) {
+                            LOG.d("DetailActivity", "转移焦点到 tvPlay");
+                            AppManager.getInstance().currentActivity().runOnUiThread(
+                                new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        LOG.d("DetailActivity", "转移焦点到 tvPlay 开始在UI执行");
+                                        tvPlay.setFocusable(true);
+                                        tvPlay.requestFocus();
+                                    }
+                                }
+                            );
+                        }
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                        return;
+                    }
+                }
+            }
+        };
+        focusChechThread = new Thread(run2);
+        focusChechThread.start();
+
         EventBus.getDefault().register(this);
         initView();
         initViewModel();
@@ -179,8 +228,24 @@ public class DetailActivity extends BaseActivity {
             getSupportFragmentManager().beginTransaction().show(playFragment).commitAllowingStateLoss();
             tvPlay.setText("全屏");
         }
+        tvPlay.setFocusable(true);
+        tvPlay.requestFocus();
+
+        mSeriesGroupView = findViewById(R.id.mSeriesGroupView);
+        mSeriesGroupView.setHasFixedSize(true);
+        mSeriesGroupView.setLayoutManager(new V7LinearLayoutManager(this.mContext, 0, false));
+        seriesGroupAdapter = new BaseQuickAdapter<String, BaseViewHolder>(R.layout.item_series_group, seriesGroupOptions) {
+            @Override
+            protected void convert(BaseViewHolder helper, String item) {
+                TextView tvSeries = helper.getView(R.id.tvSeriesFlag);
+                tvSeries.setText(item);
+            }
+        };
+        mSeriesGroupView.setAdapter(seriesGroupAdapter);
+
         //禁用播放地址焦点
         tvPlayUrl.setFocusable(false);
+
         tvSort.setOnClickListener(new View.OnClickListener() {
             @SuppressLint("NotifyDataSetChanged")
             @Override
@@ -192,6 +257,7 @@ public class DetailActivity extends BaseActivity {
                     vodInfo.playIndex=(vodInfo.seriesMap.get(vodInfo.playFlag).size()-1)-vodInfo.playIndex;
 //                    insertVod(sourceKey, vodInfo);
                     firstReverse = true;
+                    Collections.reverse(seriesGroupOptions);
                     seriesAdapter.notifyDataSetChanged();
                 }
             }
@@ -264,7 +330,7 @@ public class DetailActivity extends BaseActivity {
                 //获取剪切板管理器
                 ClipboardManager cm = (ClipboardManager)getSystemService(mContext.CLIPBOARD_SERVICE);
                 //设置内容到剪切板
-                cm.setPrimaryClip(ClipData.newPlainText(null, tvPlayUrl.getText().toString().replace("播放地址: ","")));
+                cm.setPrimaryClip(ClipData.newPlainText(null, tvPlayUrl.getText().toString().replace("播放地址：","")));
                 Toast.makeText(DetailActivity.this, "已复制", Toast.LENGTH_SHORT).show();
             }
         });
@@ -359,7 +425,54 @@ public class DetailActivity extends BaseActivity {
                 }
             }
         });
+
+        mSeriesGroupView.setOnItemListener(new TvRecyclerView.OnItemListener() {
+            @Override
+            public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
+                TextView txtView = itemView.findViewById(R.id.tvSeriesFlag);
+                txtView.setTextColor(Color.WHITE);
+                currentSeriesGroupView = null;
+            }
+
+            @Override
+            public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
+                TextView txtView = itemView.findViewById(R.id.tvSeriesFlag);
+                txtView.setTextColor(mContext.getResources().getColor(R.color.color_02F8E1));
+                if (vodInfo != null && vodInfo.seriesMap.get(vodInfo.playFlag).size() > 0) {
+                    int targetPos = position * GroupCount;
+                    mGridView.smoothScrollToPosition(targetPos);
+                }
+                currentSeriesGroupView = itemView;
+                currentSeriesGroupView.isSelected();
+            }
+
+            @Override
+            public void onItemClick(TvRecyclerView parent, View itemView, int position) { }
+        });
+        seriesGroupAdapter.setOnItemClickListener(new BaseQuickAdapter.OnItemClickListener() {
+            @Override
+            public void onItemClick(BaseQuickAdapter adapter, View view, int position) {
+                FastClickCheckUtil.check(view);
+                if(currentSeriesGroupView != null) {
+                    TextView txtView = currentSeriesGroupView.findViewById(R.id.tvSeriesFlag);
+                    txtView.setTextColor(Color.WHITE);
+                }
+                TextView newTxtView = view.findViewById(R.id.tvSeriesFlag);
+                newTxtView.setTextColor(mContext.getResources().getColor(R.color.color_02F8E1));
+                if (vodInfo != null && vodInfo.seriesMap.get(vodInfo.playFlag).size() > 0) {
+                    int targetPos =  position * GroupCount;
+                    mGridView.smoothScrollToPosition(targetPos);
+                }
+                currentSeriesGroupView = view;
+                currentSeriesGroupView.isSelected();
+            }
+        });
+
         setLoadSir(llLayout);
+    }
+
+    private void initCheckedSourcesForSearch() {
+        mCheckSources = SearchHelper.getSourcesForSearch();
     }
 
     private List<Runnable> pauseRunnable = null;
@@ -367,11 +480,14 @@ public class DetailActivity extends BaseActivity {
     private void jumpToPlay() {
         if (vodInfo != null && vodInfo.seriesMap.get(vodInfo.playFlag).size() > 0) {
             preFlag = vodInfo.playFlag;
+            //更新播放地址
+            setTextShow(tvPlayUrl, "播放地址：", vodInfo.seriesMap.get(vodInfo.playFlag).get(vodInfo.playIndex).url);
             Bundle bundle = new Bundle();
             //保存历史
             insertVod(sourceKey, vodInfo);
             bundle.putString("sourceKey", sourceKey);
-            bundle.putSerializable("VodInfo", vodInfo);
+//            bundle.putSerializable("VodInfo", vodInfo);
+            App.getInstance().setVodInfo(vodInfo);
             if (showPreview) {
                 if (previewVodInfo == null) {
                     try {
@@ -391,7 +507,8 @@ public class DetailActivity extends BaseActivity {
                     previewVodInfo.playFlag = vodInfo.playFlag;
                     previewVodInfo.playIndex = vodInfo.playIndex;
                     previewVodInfo.seriesMap = vodInfo.seriesMap;
-                    bundle.putSerializable("VodInfo", previewVodInfo);
+//                    bundle.putSerializable("VodInfo", previewVodInfo);
+                    App.getInstance().setVodInfo(previewVodInfo);
                 }
                 playFragment.setData(bundle);
             } else {
@@ -400,6 +517,7 @@ public class DetailActivity extends BaseActivity {
         }
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     void refreshList() {
         if (vodInfo.seriesMap.get(vodInfo.playFlag).size() <= vodInfo.playIndex) {
             vodInfo.playIndex = 0;
@@ -408,7 +526,7 @@ public class DetailActivity extends BaseActivity {
         if (vodInfo.seriesMap.get(vodInfo.playFlag) != null) {
             boolean canSelect = true;
             for (int j = 0; j < vodInfo.seriesMap.get(vodInfo.playFlag).size(); j++) {
-                if(vodInfo.seriesMap.get(vodInfo.playFlag).get(j).selected == true){
+                if(vodInfo.seriesMap.get(vodInfo.playFlag).get(j).selected){
                     canSelect = false;
                     break;
                 }
@@ -421,8 +539,9 @@ public class DetailActivity extends BaseActivity {
         Rect rect = new Rect();
 
         List<VodInfo.VodSeries> list = vodInfo.seriesMap.get(vodInfo.playFlag);
+        int listSize = list.size();
         int w = 1;
-        for(int i =0; i < list.size(); ++i){
+        for(int i =0; i < listSize; ++i){
             String name = list.get(i).name;
             pFont.getTextBounds(name, 0, name.length(), rect);
             if(w < rect.width()){
@@ -432,15 +551,41 @@ public class DetailActivity extends BaseActivity {
         w += 32;
         int screenWidth = getWindowManager().getDefaultDisplay().getWidth()/3;
         int offset = screenWidth/w;
-        if(offset <=1) offset =1;
+        if(offset <=2) offset =2;
         if(offset > 6) offset =6;
-        this.mGridViewLayoutMgr.setSpanCount(offset);
-
+        mGridViewLayoutMgr.setSpanCount(offset);
         seriesAdapter.setNewData(vodInfo.seriesMap.get(vodInfo.playFlag));
+
+        seriesGroupOptions.clear();
+        if(listSize>100 && listSize<=400)GroupCount=50;
+        if(listSize>400)GroupCount=200;
+        if(listSize > GroupCount) {
+            mSeriesGroupView.setVisibility(View.VISIBLE);
+            int remainedOptionSize = listSize % GroupCount;
+            int optionSize = listSize / GroupCount;
+            for(int i = 0; i < optionSize; i++) {
+                if(vodInfo.reverseSort)
+                    seriesGroupOptions.add(String.format("%d - %d", i * GroupCount + GroupCount, i * GroupCount + 1));
+                else
+                    seriesGroupOptions.add(String.format("%d - %d", i * GroupCount + 1, i * GroupCount + GroupCount));
+            }
+            if(remainedOptionSize > 0) {
+                if(vodInfo.reverseSort)
+                    seriesGroupOptions.add(String.format("%d - %d", optionSize * GroupCount + remainedOptionSize, optionSize * GroupCount + 1));
+                else
+                    seriesGroupOptions.add(String.format("%d - %d", optionSize * GroupCount + 1, optionSize * GroupCount + remainedOptionSize));
+            }
+            if(vodInfo.reverseSort) Collections.reverse(seriesGroupOptions);
+
+            seriesGroupAdapter.notifyDataSetChanged();
+        }else {
+            mSeriesGroupView.setVisibility(View.GONE);
+        }
+
         mGridView.postDelayed(new Runnable() {
             @Override
             public void run() {
-                mGridView.scrollToPosition(vodInfo.playIndex);
+                mGridView.smoothScrollToPosition(vodInfo.playIndex);
             }
         }, 100);
     }
@@ -532,7 +677,7 @@ public class DetailActivity extends BaseActivity {
                                 flag.selected = false;
                         }
                         //设置播放地址
-                        setTextShow(tvPlayUrl, "播放地址: ", vodInfo.seriesMap.get(vodInfo.playFlag).get(0).url);
+                        setTextShow(tvPlayUrl, "播放地址：", vodInfo.seriesMap.get(vodInfo.playFlag).get(0).url);
                         seriesFlagAdapter.setNewData(vodInfo.seriesFlags);
                         mGridViewFlag.scrollToPosition(flagScrollTo);
 
@@ -545,6 +690,7 @@ public class DetailActivity extends BaseActivity {
                         // startQuickSearch();
                     } else {
                         mGridViewFlag.setVisibility(View.GONE);
+                        mSeriesGroupView.setVisibility(View.GONE);
                         mGridView.setVisibility(View.GONE);
                         tvPlay.setVisibility(View.GONE);
                         mEmptyPlayList.setVisibility(View.VISIBLE);
@@ -594,16 +740,16 @@ public class DetailActivity extends BaseActivity {
             if (event.obj != null) {
                 if (event.obj instanceof Integer) {
                     int index = (int) event.obj;
-                    if (index != vodInfo.playIndex) {
-                        seriesAdapter.getData().get(vodInfo.playIndex).selected = false;
-                        seriesAdapter.notifyItemChanged(vodInfo.playIndex);
-                        seriesAdapter.getData().get(index).selected = true;
-                        seriesAdapter.notifyItemChanged(index);
-                        mGridView.setSelection(index);
-                        vodInfo.playIndex = index;
-                        //保存历史
-                        insertVod(sourceKey, vodInfo);
+                    for (int j = 0; j < vodInfo.seriesMap.get(vodInfo.playFlag).size(); j++) {
+                        seriesAdapter.getData().get(j).selected = false;
+                        seriesAdapter.notifyItemChanged(j);
                     }
+                    seriesAdapter.getData().get(index).selected = true;
+                    seriesAdapter.notifyItemChanged(index);
+                    mGridView.setSelection(index);
+                    vodInfo.playIndex = index;
+                    //保存历史
+                    insertVod(sourceKey, vodInfo);
                 } else if (event.obj instanceof JSONObject) {
                     vodInfo.playerCfg = ((JSONObject) event.obj).toString();
                     //保存历史
@@ -644,6 +790,7 @@ public class DetailActivity extends BaseActivity {
     }
 
     private void startQuickSearch() {
+        initCheckedSourcesForSearch();
         if (hadQuickStart)
             return;
         hadQuickStart = true;
@@ -710,6 +857,9 @@ public class DetailActivity extends BaseActivity {
             if (!bean.isSearchable() || !bean.isQuickSearch()) {
                 continue;
             }
+            if (mCheckSources != null && !mCheckSources.containsKey(bean.getKey())) {
+                continue;
+            }
             siteKey.add(bean.getKey());
         }
         for (String key : siteKey) {
@@ -749,6 +899,7 @@ public class DetailActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        focusChechThread.interrupt();
         try {
             if (searchExecutorService != null) {
                 searchExecutorService.shutdownNow();
@@ -822,6 +973,7 @@ public class DetailActivity extends BaseActivity {
         llPlayerFragmentContainerBlock.setVisibility(fullWindows ? View.GONE : View.VISIBLE);
         mGridView.setVisibility(fullWindows ? View.GONE : View.VISIBLE);
         mGridViewFlag.setVisibility(fullWindows ? View.GONE : View.VISIBLE);
+        mSeriesGroupView.setVisibility(fullWindows ? View.GONE : View.VISIBLE);
 
         //全屏下禁用详情页几个按键的焦点 防止上键跑过来
         tvPlay.setFocusable(!fullWindows);

@@ -16,19 +16,23 @@ import com.github.tvbox.osc.base.BaseActivity;
 import com.github.tvbox.osc.base.BaseLazyFragment;
 import com.github.tvbox.osc.bean.IJKCode;
 import com.github.tvbox.osc.bean.SourceBean;
+import com.github.tvbox.osc.data.CustomData;
+import com.github.tvbox.osc.event.RefreshEvent;
+import com.github.tvbox.osc.player.thirdparty.RemoteTVBox;
 import com.github.tvbox.osc.ui.activity.HomeActivity;
 import com.github.tvbox.osc.ui.activity.SettingActivity;
 import com.github.tvbox.osc.ui.adapter.SelectDialogAdapter;
-import com.github.tvbox.osc.ui.dialog.AboutDialog;
 import com.github.tvbox.osc.ui.dialog.ApiDialog;
 import com.github.tvbox.osc.ui.dialog.BackupDialog;
 import com.github.tvbox.osc.ui.dialog.UpdateDialog;
 import com.github.tvbox.osc.ui.dialog.EpgDialog;
+import com.github.tvbox.osc.ui.dialog.SearchRemoteTvDialog;
 import com.github.tvbox.osc.ui.dialog.SelectDialog;
 import com.github.tvbox.osc.ui.dialog.XWalkInitDialog;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.HistoryHelper;
+import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.util.OkGoHelper;
 import com.github.tvbox.osc.util.PlayerHelper;
 import com.lzy.okgo.OkGo;
@@ -69,6 +73,8 @@ public class ModelSettingFragment extends BaseLazyFragment {
     private TextView tvShowPreviewText;
     private TextView tvShowWallpaperIndexText;
     private TextView tvFastSearchText;
+    private TextView appModelSelectText;
+    private TextView tvRecStyleText;
 
     public static ModelSettingFragment newInstance() {
         return new ModelSettingFragment().setArguments();
@@ -87,6 +93,8 @@ public class ModelSettingFragment extends BaseLazyFragment {
     protected void init() {
         tvFastSearchText = findViewById(R.id.showFastSearchText);
         tvFastSearchText.setText(Hawk.get(HawkConfig.FAST_SEARCH_MODE, false) ? "已开启" : "已关闭");
+        tvRecStyleText = findViewById(R.id.showRecStyleText);
+        tvRecStyleText.setText(Hawk.get(HawkConfig.HOME_REC_STYLE, false) ? "是" : "否");
         tvShowPreviewText = findViewById(R.id.showPreviewText);
         tvShowPreviewText.setText(Hawk.get(HawkConfig.SHOW_PREVIEW, true) ? "开启" : "关闭");
         tvDebugOpen = findViewById(R.id.tvDebugOpen);
@@ -103,6 +111,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
         tvHistoryNum = findViewById(R.id.tvHistoryNum);
         tvSearchView = findViewById(R.id.tvSearchView);
         tvShowWallpaperIndexText = findViewById(R.id.showWallpaperIndex);
+        appModelSelectText = findViewById(R.id.appModelSelect);
         tvMediaCodec.setText(Hawk.get(HawkConfig.IJK_CODEC, ""));
         tvDebugOpen.setText(Hawk.get(HawkConfig.DEBUG_OPEN, false) ? "已打开" : "已关闭");
         tvParseWebView.setText(Hawk.get(HawkConfig.PARSE_WEBVIEW, true) ? "系统自带" : "XWalkView");
@@ -117,6 +126,43 @@ public class ModelSettingFragment extends BaseLazyFragment {
         tvPlay.setText(PlayerHelper.getPlayerName(Hawk.get(HawkConfig.PLAY_TYPE, 0)));
         tvRender.setText(PlayerHelper.getRenderName(Hawk.get(HawkConfig.PLAY_RENDER, 0)));
         tvShowWallpaperIndexText.setText(ApiConfig.get().getShowWallpaperIndex());
+        appModelSelectText.setText(CustomData.getInstance().GetCurrAppModelTypeName());
+        findViewById(R.id.appModel).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                FastClickCheckUtil.check(view);
+                int defaultPos = CustomData.getInstance().GetCurrAppModelType().ordinal();
+                ArrayList<Integer> types = new ArrayList<>();
+                types.add(CustomData.AppModelType.YOUND.ordinal());
+                types.add(CustomData.AppModelType.AGED.ordinal());
+                SelectDialog<Integer> dialog = new SelectDialog<>(mActivity);
+                dialog.setTip("请选择APP模式");
+                dialog.setAdapter(new SelectDialogAdapter.SelectDialogInterface<Integer>() {
+                    @Override
+                    public void click(Integer value, int pos) {
+                        CustomData.getInstance().SetAppModelType(CustomData.AppModelType.values()[pos]);
+                        appModelSelectText.setText(CustomData.getInstance().GetCurrAppModelTypeName());
+                        dialog.dismiss();
+                    }
+
+                    @Override
+                    public String getDisplay(Integer val) {
+                        return CustomData.getInstance().GetCurrAppModelTypeName(CustomData.AppModelType.values()[val]);
+                    }
+                }, new DiffUtil.ItemCallback<Integer>() {
+                    @Override
+                    public boolean areItemsTheSame(@NonNull @NotNull Integer oldItem, @NonNull @NotNull Integer newItem) {
+                        return oldItem.intValue() == newItem.intValue();
+                    }
+
+                    @Override
+                    public boolean areContentsTheSame(@NonNull @NotNull Integer oldItem, @NonNull @NotNull Integer newItem) {
+                        return oldItem.intValue() == newItem.intValue();
+                    }
+                }, types, defaultPos);
+                dialog.show();
+            }
+        });
         findViewById(R.id.llDebug).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -617,7 +663,87 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 tvFastSearchText.setText(Hawk.get(HawkConfig.FAST_SEARCH_MODE, false) ? "已开启" : "已关闭");
             }
         });
+
+        findViewById(R.id.llHomeRecStyle).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FastClickCheckUtil.check(v);
+                Hawk.put(HawkConfig.HOME_REC_STYLE, !Hawk.get(HawkConfig.HOME_REC_STYLE, false));
+                tvRecStyleText.setText(Hawk.get(HawkConfig.HOME_REC_STYLE, false) ? "是" : "否");
+            }
+        });
+
+        
+//        LOG.e("开始语音转换");
+//        TextToSpeechUtils.getInstance().initTextToSpeech(mActivity);
+//        TextToSpeechUtils.getInstance().close();
+//        TextToSpeechUtils.getInstance().speak("开始虹膜注册");
+//        TextToSpeechUtils.getInstance().close();
+//        TextToSpeechUtils.getInstance().speak("spek in english");
+//        TextToSpeechUtils.getInstance().close();
+        LOG.e("语音有问题，无法播放，暂时关闭");
+        findViewById(R.id.llSearchTv).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                FastClickCheckUtil.check(view);
+                loadingSearchRemoteTvDialog = new SearchRemoteTvDialog(mActivity);
+                EventBus.getDefault().register(loadingSearchRemoteTvDialog);
+                loadingSearchRemoteTvDialog.setTip("搜索附近TVBox");
+                loadingSearchRemoteTvDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                    @Override
+                    public void onDismiss(DialogInterface dialogInterface) {
+                        EventBus.getDefault().unregister(loadingSearchRemoteTvDialog);
+                    }
+                });
+                loadingSearchRemoteTvDialog.show();
+
+                RemoteTVBox tv = new RemoteTVBox();
+                remoteTvHostList = new ArrayList<>();
+                foundRemoteTv = false;
+                view.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                RemoteTVBox.searchAvalible(tv.new Callback() {
+                                    @Override
+                                    public void found(String viewHost, boolean end) {
+                                        remoteTvHostList.add(viewHost);
+                                        if (end) {
+                                            foundRemoteTv = true;
+                                            EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_SETTING_SEARCH_TV));
+                                        }
+                                    }
+
+                                    @Override
+                                    public void fail(boolean all, boolean end) {
+                                        if (end) {
+                                            if (all) {
+                                                foundRemoteTv = false;
+                                            } else {
+                                                foundRemoteTv = true;
+                                            }
+                                            EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_SETTING_SEARCH_TV));
+                                        }
+                                    }
+                                });
+                            }
+                        }).start();
+
+                    }
+                }, 500);
+
+
+            }
+        });
     }
+
+
+    public static SearchRemoteTvDialog loadingSearchRemoteTvDialog;
+    public static List<String> remoteTvHostList;
+    public static boolean foundRemoteTv;
 
     @Override
     public void onDestroyView() {

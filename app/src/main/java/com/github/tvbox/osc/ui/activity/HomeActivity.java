@@ -8,12 +8,12 @@ import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowManager;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.BounceInterpolator;
 import android.widget.LinearLayout;
@@ -21,20 +21,20 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.viewpager.widget.ViewPager;
 
-import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.api.ApiConfig;
 import com.github.tvbox.osc.base.BaseActivity;
 import com.github.tvbox.osc.base.BaseLazyFragment;
 import com.github.tvbox.osc.bean.AbsSortXml;
-import com.github.tvbox.osc.bean.Movie;
 import com.github.tvbox.osc.bean.MovieSort;
 import com.github.tvbox.osc.bean.SourceBean;
+import com.github.tvbox.osc.data.CustomData;
 import com.github.tvbox.osc.event.RefreshEvent;
 import com.github.tvbox.osc.server.ControlManager;
 import com.github.tvbox.osc.ui.adapter.HomePageAdapter;
@@ -42,6 +42,7 @@ import com.github.tvbox.osc.ui.adapter.SelectDialogAdapter;
 import com.github.tvbox.osc.ui.adapter.SortAdapter;
 import com.github.tvbox.osc.ui.dialog.SelectDialog;
 import com.github.tvbox.osc.ui.dialog.TipDialog;
+import com.github.tvbox.osc.ui.dialog.XWalkInitDialog;
 import com.github.tvbox.osc.ui.fragment.GridFragment;
 import com.github.tvbox.osc.ui.fragment.UserFragment;
 import com.github.tvbox.osc.ui.tv.widget.DefaultTransformer;
@@ -55,6 +56,7 @@ import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.viewmodel.SourceViewModel;
 import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
+import com.owen.tvrecyclerview.widget.V7GridLayoutManager;
 import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
 
 import org.greenrobot.eventbus.EventBus;
@@ -74,6 +76,7 @@ public class HomeActivity extends BaseActivity {
     private LinearLayout topLayout;
     private LinearLayout contentLayout;
     private TextView tvDate;
+    private TextView tvVersion;
     private TextView tvName;
     private TvRecyclerView mGridView;
     private NoScrollViewPager mViewPager;
@@ -125,6 +128,7 @@ public class HomeActivity extends BaseActivity {
     private void initView() {
         this.topLayout = findViewById(R.id.topLayout);
         this.tvDate = findViewById(R.id.tvDate);
+        this.tvVersion = findViewById(R.id.tvVersion);
         this.tvName = findViewById(R.id.tvName);
         this.contentLayout = findViewById(R.id.contentLayout);
         this.mGridView = findViewById(R.id.mGridView);
@@ -141,16 +145,17 @@ public class HomeActivity extends BaseActivity {
                         public void run() {
                             TextView textView = view.findViewById(R.id.tvTitle);
                             textView.getPaint().setFakeBoldText(false);
-                            if(sortFocused == p){
+                            if (sortFocused == p) {
                                 view.animate().scaleX(1.1f).scaleY(1.1f).setInterpolator(new BounceInterpolator()).setDuration(300).start();
                                 textView.setTextColor(HomeActivity.this.getResources().getColor(R.color.color_FFFFFF));
-                            }else {
+                            } else {
                                 view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(300).start();
                                 textView.setTextColor(HomeActivity.this.getResources().getColor(R.color.color_BBFFFFFF));
                                 view.findViewById(R.id.tvFilter).setVisibility(View.GONE);
                             }
                             textView.invalidate();
                         }
+
                         public View v = view;
                         public int p = position;
                     }, 10);
@@ -215,17 +220,19 @@ public class HomeActivity extends BaseActivity {
         tvName.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
-                Intent intent =new Intent(getApplicationContext(), HomeActivity.class);
+                Intent intent = new Intent(getApplicationContext(), HomeActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 Bundle bundle = new Bundle();
                 bundle.putBoolean("useCache", true);
                 intent.putExtras(bundle);
                 HomeActivity.this.startActivity(intent);
-                return  true;
+                return true;
             }
         });
         setLoadSir(this.contentLayout);
         //mHandler.postDelayed(mFindFocus, 500);
+
+        this.tvVersion.setText("V:"+DefaultConfig.getAppVersionName(this));
     }
 
     private void initViewModel() {
@@ -386,6 +393,28 @@ public class HomeActivity extends BaseActivity {
                 });
             }
         }, this);
+
+        // region 如果5.0版本以下，自动下载XW
+        try{
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP && Hawk.get(HawkConfig.PARSE_WEBVIEW, true)){
+                LOG.d(this, "Android5.0及以下版本，自动下载XWalkView嗅探");
+                Toast.makeText(this, "Android5.0及以下版本，自动下载XWalkView嗅探", Toast.LENGTH_LONG).show();
+                XWalkInitDialog dialog = new XWalkInitDialog(this);
+                dialog.setOnListener(new XWalkInitDialog.OnListener() {
+                    @Override
+                    public void onchange() {
+                        Hawk.put(HawkConfig.PARSE_WEBVIEW, false);
+                    }
+                });
+                dialog.show();
+                dialog.OnPerformClick();
+            }else{
+                LOG.d(this, "非Android5.0及以下版本，使用系统嗅探");
+            }
+        }catch (Exception ex){
+            ex.printStackTrace();
+        }
+        // endregion
     }
 
     private void initViewPager(AbsSortXml absXml) {
@@ -427,8 +456,10 @@ public class HomeActivity extends BaseActivity {
         BaseLazyFragment baseLazyFragment = this.fragments.get(i);
         if (baseLazyFragment instanceof GridFragment) {
             View view = this.sortFocusView;
-            GridFragment grid = (GridFragment)baseLazyFragment;
-            if(grid.restoreView() ){ return; }// 还原上次保存的UI内容
+            GridFragment grid = (GridFragment) baseLazyFragment;
+            if (grid.restoreView()) {
+                return;
+            }// 还原上次保存的UI内容
             if (view != null && !view.isFocused()) {
                 this.sortFocusView.requestFocus();
             } else if (this.sortFocused != 0) {
@@ -585,16 +616,27 @@ public class HomeActivity extends BaseActivity {
     }
 
     void showSiteSwitch() {
+        if (CustomData.getInstance().GetCurrAppModelType() == CustomData.AppModelType.AGED){
+            LOG.d(this, "老年版本不显示首页数据源列表！");
+            return;
+        }
         List<SourceBean> sites = ApiConfig.get().getSourceBeanList();
         if (sites.size() > 0) {
-            String homeSourceKey = ApiConfig.get().getHomeSourceBean().getKey();
             SelectDialog<SourceBean> dialog = new SelectDialog<>(HomeActivity.this);
+            TvRecyclerView tvRecyclerView = dialog.findViewById(R.id.list);
+            int spanCount;
+            spanCount = (int)Math.floor(sites.size()/60);
+            spanCount = Math.min(spanCount, 2);
+            tvRecyclerView.setLayoutManager(new V7GridLayoutManager(dialog.getContext(), spanCount+1));
+            ConstraintLayout cl_root = dialog.findViewById(R.id.cl_root);
+            ViewGroup.LayoutParams clp = cl_root.getLayoutParams();
+            clp.width = AutoSizeUtils.mm2px(dialog.getContext(), 380+200*spanCount);
             dialog.setTip("请选择首页数据源");
             dialog.setAdapter(new SelectDialogAdapter.SelectDialogInterface<SourceBean>() {
                 @Override
                 public void click(SourceBean value, int pos) {
                     ApiConfig.get().setSourceBean(value);
-                    Intent intent =new Intent(getApplicationContext(), HomeActivity.class);
+                    Intent intent = new Intent(getApplicationContext(), HomeActivity.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     Bundle bundle = new Bundle();
                     bundle.putBoolean("useCache", true);
@@ -617,31 +659,6 @@ public class HomeActivity extends BaseActivity {
                     return oldItem.getKey().equals(newItem.getKey());
                 }
             }, sites, sites.indexOf(ApiConfig.get().getHomeSourceBean()));
-            dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
-                @Override
-                public void onDismiss(DialogInterface dialog) {
-                    if (homeSourceKey != null && !homeSourceKey.equals(Hawk.get(HawkConfig.HOME_API, ""))) {
-//                        Intent intent = getApplicationContext().getPackageManager().getLaunchIntentForPackage(getApplication().getPackageName());
-//                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
-//                                | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-//                        Bundle bundle = new Bundle();
-//                        bundle.putBoolean("useCache", true);
-//                        intent.putExtras(bundle);
-//                        getApplicationContext().startActivity(intent);
-//                        System.exit(0);
-
-
-//                        Intent intent =new Intent(getApplicationContext(), HomeActivity.class);
-//                        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-//                        Bundle bundle = new Bundle();
-//                        bundle.putBoolean("useCache", true);
-//                        intent.putExtras(bundle);
-//                        HomeActivity.this.startActivity(intent);
-
-
-                    }
-                }
-            });
             dialog.show();
         }
     }

@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.github.tvbox.osc">
 
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -11,6 +18,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" /> <!-- 录音 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" /> <!-- 开机自启动 -->
 
     <application
         android:name=".base.App"
@@ -28,7 +36,7 @@
 
         <activity
             android:name=".ui.activity.HomeActivity"
-            android:screenOrientation="landscape">
+            android:screenOrientation="sensorLandscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -42,28 +50,30 @@
             android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".ui.activity.DetailActivity"
+            android:configChanges="orientation|screenSize"
             android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".ui.activity.PlayActivity"
+            android:configChanges="orientation|screenSize"
             android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".ui.activity.PushActivity"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".ui.activity.SearchActivity"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".ui.activity.FastSearchActivity"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".ui.activity.SettingActivity"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".ui.activity.HistoryActivity"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".ui.activity.CollectActivity"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="sensorLandscape" />
 
         <receiver android:name=".receiver.SearchReceiver">
             <intent-filter>
@@ -73,6 +83,12 @@
         <receiver android:name=".receiver.CustomWebReceiver">
             <intent-filter>
                 <action android:name="android.content.movie.custom.web.Action" />
+            </intent-filter>
+        </receiver>
+        <!-- 开机自启动 -->
+        <receiver android:name=".receiver.BootCompleteReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 

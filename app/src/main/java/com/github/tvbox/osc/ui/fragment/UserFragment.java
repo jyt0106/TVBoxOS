@@ -16,6 +16,7 @@ import com.github.tvbox.osc.base.BaseLazyFragment;
 import com.github.tvbox.osc.bean.Movie;
 import com.github.tvbox.osc.bean.VodInfo;
 import com.github.tvbox.osc.cache.RoomDataManger;
+import com.github.tvbox.osc.data.CustomData;
 import com.github.tvbox.osc.event.ServerEvent;
 import com.github.tvbox.osc.ui.activity.CollectActivity;
 import com.github.tvbox.osc.ui.activity.DetailActivity;
@@ -28,6 +29,8 @@ import com.github.tvbox.osc.ui.activity.SettingActivity;
 import com.github.tvbox.osc.ui.adapter.HomeHotVodAdapter;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
+import com.github.tvbox.osc.util.RemoteConfigName;
+import com.github.tvbox.osc.util.UA;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -37,6 +40,8 @@ import com.lzy.okgo.callback.AbsCallback;
 import com.lzy.okgo.model.Response;
 import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
+import com.owen.tvrecyclerview.widget.V7GridLayoutManager;
+import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -61,6 +66,8 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
     private LinearLayout tvGame;
     private HomeHotVodAdapter homeHotVodAdapter;
     private List<Movie.Video> homeSourceRec;
+    TvRecyclerView tvHotList1;
+    TvRecyclerView tvHotList2;
 
     public static UserFragment newInstance() {
         return new UserFragment();
@@ -77,9 +84,18 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
 
     @Override
     protected void onFragmentResume() {
+        if(Hawk.get(HawkConfig.HOME_REC_STYLE, false)){
+            tvHotList1.setVisibility(View.VISIBLE);
+            tvHotList2.setVisibility(View.GONE);
+            tvHotList1.setHasFixedSize(true);
+            tvHotList1.setLayoutManager(new V7GridLayoutManager(this.mContext, 5));
+        }else {
+            tvHotList1.setVisibility(View.GONE);
+            tvHotList2.setVisibility(View.VISIBLE);
+        }
         super.onFragmentResume();
         if (Hawk.get(HawkConfig.HOME_REC, 0) == 2) {
-            List<VodInfo> allVodRecord = RoomDataManger.getAllVodRecord(10);
+            List<VodInfo> allVodRecord = RoomDataManger.getAllVodRecord(30);
             List<Movie.Video> vodList = new ArrayList<>();
             for (VodInfo vodInfo : allVodRecord) {
                 Movie.Video vod = new Movie.Video();
@@ -124,7 +140,15 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
         tvPush.setOnFocusChangeListener(focusChangeListener);
         tvCollect.setOnFocusChangeListener(focusChangeListener);
         tvGame.setOnFocusChangeListener(focusChangeListener);
-        TvRecyclerView tvHotList = findViewById(R.id.tvHotList);
+        tvHistory.setVisibility(CustomData.getInstance().GetHomeButtonVisition(RemoteConfigName.HomeButtons_HistoryButton)?View.VISIBLE:View.GONE);
+        tvPush.setVisibility(CustomData.getInstance().GetHomeButtonVisition(RemoteConfigName.HomeButtons_PushButton)?View.VISIBLE:View.GONE);
+        tvCollect.setVisibility(CustomData.getInstance().GetHomeButtonVisition(RemoteConfigName.HomeButtons_CollectionButton)?View.VISIBLE:View.GONE);
+        tvGame.setVisibility(CustomData.getInstance().GetHomeButtonVisition(RemoteConfigName.HomeButtons_CloudGameButton)?View.VISIBLE:View.GONE);
+        tvLive.setVisibility(CustomData.getInstance().GetHomeButtonVisition(RemoteConfigName.HomeButtons_LiveButton)?View.VISIBLE:View.GONE);
+        tvSearch.setVisibility(CustomData.getInstance().GetHomeButtonVisition(RemoteConfigName.HomeButtons_SearchButton)?View.VISIBLE:View.GONE);
+        tvSetting.setVisibility(CustomData.getInstance().GetHomeButtonVisition(RemoteConfigName.HomeButtons_SettingButton)?View.VISIBLE:View.GONE);
+        tvHotList1 = findViewById(R.id.tvHotList1);
+        tvHotList2 = findViewById(R.id.tvHotList2);
         homeHotVodAdapter = new HomeHotVodAdapter();
         homeHotVodAdapter.setOnItemClickListener(new BaseQuickAdapter.OnItemClickListener() {
             @Override
@@ -168,7 +192,7 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
             }
         });
 
-        tvHotList.setOnItemListener(new TvRecyclerView.OnItemListener() {
+        tvHotList1.setOnItemListener(new TvRecyclerView.OnItemListener() {
             @Override
             public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
                 itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
@@ -184,7 +208,24 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
 
             }
         });
-        tvHotList.setAdapter(homeHotVodAdapter);
+        tvHotList1.setAdapter(homeHotVodAdapter);
+        tvHotList2.setOnItemListener(new TvRecyclerView.OnItemListener() {
+            @Override
+            public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
+                itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
+            }
+
+            @Override
+            public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
+                itemView.animate().scaleX(1.05f).scaleY(1.05f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
+            }
+
+            @Override
+            public void onItemClick(TvRecyclerView parent, View itemView, int position) {
+
+            }
+        });
+        tvHotList2.setAdapter(homeHotVodAdapter);
 
         initHomeHotVod(homeHotVodAdapter);
     }
@@ -208,11 +249,17 @@ public class UserFragment extends BaseLazyFragment implements View.OnClickListen
             if (requestDay.equals(today)) {
                 String json = Hawk.get("home_hot", "");
                 if (!json.isEmpty()) {
-                    adapter.setNewData(loadHots(json));
-                    return;
+                    ArrayList<Movie.Video> hotMovies = loadHots(json);
+                    if (hotMovies != null && hotMovies.size() > 0) {
+                        adapter.setNewData(hotMovies);
+                        return;
+                    }
                 }
             }
-            OkGo.<String>get("https://movie.douban.com/j/new_search_subjects?sort=U&range=0,10&tags=&playable=1&start=0&year_range=" + year + "," + year).execute(new AbsCallback<String>() {
+            String doubanUrl = "https://movie.douban.com/j/new_search_subjects?sort=U&range=0,10&tags=&playable=1&start=0&year_range=" + year + "," + year;
+            OkGo.<String>get(doubanUrl)
+                    .headers("User-Agent", UA.randomOne())
+                    .execute(new AbsCallback<String>() {
                 @Override
                 public void onSuccess(Response<String> response) {
                     String netJson = response.body();

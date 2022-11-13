@@ -15,6 +15,7 @@ import com.github.tvbox.osc.bean.AbsXml;
 import com.github.tvbox.osc.bean.Movie;
 import com.github.tvbox.osc.bean.MovieSort;
 import com.github.tvbox.osc.bean.SourceBean;
+import com.github.tvbox.osc.data.CustomData;
 import com.github.tvbox.osc.ui.activity.DetailActivity;
 import com.github.tvbox.osc.ui.activity.FastSearchActivity;
 import com.github.tvbox.osc.ui.activity.SearchActivity;
@@ -23,6 +24,7 @@ import com.github.tvbox.osc.ui.dialog.GridFilterDialog;
 import com.github.tvbox.osc.ui.tv.widget.LoadMoreView;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
+import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.viewmodel.SourceViewModel;
 import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
@@ -88,7 +90,10 @@ public class GridFragment extends BaseLazyFragment {
     }
     public boolean isFolederMode(){ return (getUITag() =='1'); }
     // 获取当前页面UI的显示模式 ‘0’ 正常模式 '1' 文件夹模式 '2' 显示缩略图的文件夹模式
-    public char getUITag(){  return (sortData.flag == null || sortData.flag.length() ==0 ) ?  '0' : sortData.flag.charAt(0); }
+    public char getUITag(){
+        System.out.println(sortData);
+        return (sortData == null || sortData.flag == null || sortData.flag.length() ==0 ) ?  '0' : sortData.flag.charAt(0);
+    }
     // 是否允许聚合搜索 sortData.flag的第二个字符为‘1’时允许聚搜
     public boolean enableFastSearch(){  return (sortData.flag == null || sortData.flag.length() < 2 ) ?  true : (sortData.flag.charAt(1) =='1'); }
     // 保存当前页面
@@ -204,7 +209,7 @@ public class GridFragment extends BaseLazyFragment {
                     else if(homeSourceBean.isQuickSearch() && Hawk.get(HawkConfig.FAST_SEARCH_MODE, false) && enableFastSearch()){
                         jumpActivity(FastSearchActivity.class, bundle);
                     }else{
-                        if(video.id.isEmpty() || video.id.startsWith("msearch:")){
+                        if(video.id == null || video.id.isEmpty() || video.id.startsWith("msearch:")){
                             jumpActivity(SearchActivity.class, bundle);
                         }else {
                             jumpActivity(DetailActivity.class, bundle);
@@ -250,6 +255,14 @@ public class GridFragment extends BaseLazyFragment {
                     }
                     page++;
                     maxPage = absXml.movie.pagecount;
+
+                    if (page > maxPage) {
+                        gridAdapter.loadMoreEnd();
+                        gridAdapter.setEnableLoadMore(false);
+                    } else {
+                        gridAdapter.loadMoreComplete();
+                        gridAdapter.setEnableLoadMore(true);
+                    }
                 } else {
                     if(page == 1){
                         showEmpty();
@@ -257,11 +270,12 @@ public class GridFragment extends BaseLazyFragment {
                     if(page > maxPage){
                         Toast.makeText(getContext(), "没有更多了", Toast.LENGTH_SHORT).show();
                     }
-                }
-                if (page > maxPage) {
-                    gridAdapter.loadMoreEnd();
-                } else {
-                    gridAdapter.loadMoreComplete();
+                    if (page > maxPage) {
+                        gridAdapter.loadMoreEnd();
+                    } else {
+                        gridAdapter.loadMoreComplete();
+                    }
+                    gridAdapter.setEnableLoadMore(false);
                 }
             }
         });
@@ -288,6 +302,10 @@ public class GridFragment extends BaseLazyFragment {
     }
 
     public void showFilter() {
+        if (CustomData.getInstance().GetCurrAppModelType() == CustomData.AppModelType.AGED){
+            LOG.d(this, "老年版本不显示筛选选项列表！");
+            return;
+        }
         if (!sortData.filters.isEmpty() && gridFilterDialog == null) {
             gridFilterDialog = new GridFilterDialog(mContext);
             gridFilterDialog.setData(sortData);
