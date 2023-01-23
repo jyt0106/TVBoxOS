@@ -106,12 +106,14 @@ public class SearchActivity extends BaseActivity {
 
 
     private static Boolean hasKeyBoard;
+    private static Boolean isSearchBack;
     @Override
     protected void init() {
         initView();
         initViewModel();
         initData();
         hasKeyBoard = true;
+        isSearchBack = false;
     }
 
     /*
@@ -155,8 +157,10 @@ public class SearchActivity extends BaseActivity {
             tvSearch.requestFocus();
             tvSearch.requestFocusFromTouch();
         }else {
-            etSearch.requestFocus();
-            etSearch.requestFocusFromTouch();
+            if(!isSearchBack){
+                etSearch.requestFocus();
+                etSearch.requestFocusFromTouch();
+            }
         }
     }
 
@@ -176,6 +180,20 @@ public class SearchActivity extends BaseActivity {
         mGridViewWord.setLayoutManager(new V7LinearLayoutManager(this.mContext, 1, false));
         wordAdapter = new PinyinAdapter();
         mGridViewWord.setAdapter(wordAdapter);
+        mGridViewWord.setOnItemListener(new TvRecyclerView.OnItemListener() {
+            @Override
+            public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
+            }
+
+            @Override
+            public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
+                playTTS(wordAdapter.getItem(position));
+            }
+
+            @Override
+            public void onItemClick(TvRecyclerView parent, View itemView, int position) {
+            }
+        });
         wordAdapter.setOnItemClickListener(new BaseQuickAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(BaseQuickAdapter adapter, View view, int position) {
@@ -191,6 +209,20 @@ public class SearchActivity extends BaseActivity {
             mGridView.setLayoutManager(new V7GridLayoutManager(this.mContext, 3));
         searchAdapter = new SearchAdapter();
         mGridView.setAdapter(searchAdapter);
+        mGridView.setOnItemListener(new TvRecyclerView.OnItemListener() {
+            @Override
+            public void onItemPreSelected(TvRecyclerView parent, View itemView, int position) {
+            }
+
+            @Override
+            public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
+                playTTS(searchAdapter.getItem(position).name);
+            }
+
+            @Override
+            public void onItemClick(TvRecyclerView parent, View itemView, int position) {
+            }
+        });
         searchAdapter.setOnItemClickListener(new BaseQuickAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(BaseQuickAdapter adapter, View view, int position) {
@@ -200,13 +232,14 @@ public class SearchActivity extends BaseActivity {
                     try {
                         if (searchExecutorService != null) {
                             pauseRunnable = searchExecutorService.shutdownNow();
-                            JSEngine.getInstance().stopAll();
                             searchExecutorService = null;
+                            JSEngine.getInstance().stopAll();
                         }
                     } catch (Throwable th) {
                         th.printStackTrace();
                     }
                     hasKeyBoard = false;
+                    isSearchBack = true;
                     Bundle bundle = new Bundle();
                     bundle.putString("id", video.id);
                     bundle.putString("sourceKey", video.sourceKey);
@@ -227,11 +260,25 @@ public class SearchActivity extends BaseActivity {
                 }
             }
         });
+        tvSearch.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean b) {
+                if (b)
+                    playTTS((TextView)view);
+            }
+        });
         tvClear.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 FastClickCheckUtil.check(v);
                 etSearch.setText("");
+            }
+        });
+        tvClear.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean b) {
+                if (b)
+                    playTTS((TextView)view);
             }
         });
 //        etSearch.setOnClickListener(new View.OnClickListener() {
@@ -304,6 +351,13 @@ public class SearchActivity extends BaseActivity {
                     });
                 }
             }
+
+            @Override
+            public void OnFocusChange(View itemView, boolean hasFocus) {
+                //会变成英语字母~~
+                if (hasFocus)
+                    playTTS(itemView.findViewById(R.id.keyName));
+            }
         });
         setLoadSir(llLayout);
         tvSearchCheckboxBtn.setOnClickListener(new View.OnClickListener() {
@@ -326,6 +380,13 @@ public class SearchActivity extends BaseActivity {
                     }
                 });
                 mSearchCheckboxDialog.show();
+            }
+        });
+        tvSearchCheckboxBtn.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean b) {
+                if (b)
+                    playTTS((TextView)view);
             }
         });
     }
@@ -486,8 +547,8 @@ public class SearchActivity extends BaseActivity {
         try {
             if (searchExecutorService != null) {
                 searchExecutorService.shutdownNow();
-                JSEngine.getInstance().stopAll();
                 searchExecutorService = null;
+                JSEngine.getInstance().stopAll();
             }
         } catch (Throwable th) {
             th.printStackTrace();
@@ -528,12 +589,22 @@ public class SearchActivity extends BaseActivity {
         }
     }
 
+    private boolean matchSearchResult(String name, String searchTitle) {
+        if (TextUtils.isEmpty(name) || TextUtils.isEmpty(searchTitle)) return false;
+        searchTitle = searchTitle.trim();
+        String[] arr = searchTitle.split("\\s+");
+        int matchNum = 0;
+        for(String one : arr) {
+            if (name.contains(one)) matchNum++;
+        }
+        return matchNum == arr.length ? true : false;
+    }
+
     private void searchData(AbsXml absXml) {
         if (absXml != null && absXml.movie != null && absXml.movie.videoList != null && absXml.movie.videoList.size() > 0) {
             List<Movie.Video> data = new ArrayList<>();
             for (Movie.Video video : absXml.movie.videoList) {
-                if (video.name.contains(searchTitle))
-                    data.add(video);
+                if (matchSearchResult(video.name, searchTitle)) data.add(video);
             }
             if (searchAdapter.getData().size() > 0) {
                 searchAdapter.addData(data);
@@ -565,8 +636,8 @@ public class SearchActivity extends BaseActivity {
         try {
             if (searchExecutorService != null) {
                 searchExecutorService.shutdownNow();
-                JSEngine.getInstance().stopAll();
                 searchExecutorService = null;
+                JSEngine.getInstance().stopAll();
             }
         } catch (Throwable th) {
             th.printStackTrace();

@@ -10,6 +10,11 @@ public class RemoteConfigName extends HawkConfig {
     public static final String VoiceApiKey="VoiceApiKey"; //讯飞ApiKey
     // endregion
 
+    // region TTS 文字转语音
+    public static final String TTSDownLoad="TTSDownLoad"; //下载地址
+    // endregion
+
+
     // region 直播配置相关
     public static final String Live ="Live"; //直播
     public static final String Live_Channel="Channel"; //频道名字
@@ -19,6 +24,10 @@ public class RemoteConfigName extends HawkConfig {
     public static final String Live_ShowNetSpeed = "ShowNetSpeed"; // 显示网速
     public static final String Live_ShowTime = "ShowTime"; // 显示时间
     // endregion
+
+
+
+
 
     // region 自定义数据
     public static final String CustomData="CustomData"; // 自定义数据
@@ -39,6 +48,7 @@ public class RemoteConfigName extends HawkConfig {
     // region 默认配置相关
     public static final String ForceChangeAPIUrl="ForceChangeAPIUrl"; //强制替换首页默认API地址，防止API失效不更新包的手段
     public static final String APIUrl="APIUrl"; // 默认首页API地址
+    public static final String ForceChangeHomeID="ForceChangeHomeID"; //强制替换首页ID
     public static final String HomeID="HomeID"; //默认首页数据源
     public static final String HomeShowType="HomeShowType"; //默认首页推荐
     public static final String HomeSearchType="HomeSearchType"; //默认搜索展示

@@ -77,6 +77,8 @@ import com.obsez.android.lib.filechooser.ChooserDialog;
 import com.orhanobut.hawk.Hawk;
 
 import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -123,6 +125,13 @@ public class PlayFragment extends BaseLazyFragment {
         return R.layout.activity_play;
     }
 
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void refresh(RefreshEvent event) {
+        if (event.type == RefreshEvent.TYPE_SUBTITLE_SIZE_CHANGE) {
+            mController.mSubtitleView.setTextSize((int) event.obj);
+        }
+    }
+
     @Override
     protected void init() {
         initView();
@@ -131,6 +140,7 @@ public class PlayFragment extends BaseLazyFragment {
     }
 
     private void initView() {
+        EventBus.getDefault().register(this);
         mHandler = new Handler(new Handler.Callback() {
             @Override
             public boolean handleMessage(@NonNull Message msg) {
@@ -505,6 +515,7 @@ public class PlayFragment extends BaseLazyFragment {
                     } else {
                         setTip(err, false, true);
                     }
+                    playTTS(err);
                 }
             });
         }
@@ -513,9 +524,11 @@ public class PlayFragment extends BaseLazyFragment {
     void playUrl(String url, HashMap<String, String> headers) {
         LOG.i("playUrl:" + url);
         if(autoRetryCount>0 && url.contains(".m3u8")){
+            LOG.e("PlayFragment   playUrl", "这里在请求m3u8", url);
             url="http://home.jundie.top:666/unBom.php?m3u8="+url;
         }
         String finalUrl = url;
+        if (mActivity == null) return;
         requireActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -965,6 +978,7 @@ public class PlayFragment extends BaseLazyFragment {
         stopParse();
         initParseLoadFound();
         if (pb.getType() == 0) {
+            LOG.i(this, "Parse【Type：0】  返回网页中找视频");
             setTip("正在嗅探播放地址", true, false);
             mHandler.removeMessages(100);
             mHandler.sendEmptyMessageDelayed(100, 20 * 1000);
@@ -993,6 +1007,7 @@ public class PlayFragment extends BaseLazyFragment {
             loadWebView(pb.getUrl() + webUrl);
 
         } else if (pb.getType() == 1) { // json 解析
+            LOG.i(this, "Parse【Type：1】  返回Json中的【url】找视频");
             setTip("正在解析播放地址", true, false);
             // 解析ext
             HttpHeaders reqHeaders = new HttpHeaders();
@@ -1059,6 +1074,7 @@ public class PlayFragment extends BaseLazyFragment {
                         }
                     });
         } else if (pb.getType() == 2) { // json 扩展
+            LOG.i(this, "Parse【Type：2】  在所有返回Json的接口中，进行并发和轮询请求");
             setTip("正在解析播放地址", true, false);
             parseThreadPool = Executors.newSingleThreadExecutor();
             LinkedHashMap<String, String> jxs = new LinkedHashMap<>();
@@ -1110,6 +1126,7 @@ public class PlayFragment extends BaseLazyFragment {
                 }
             });
         } else if (pb.getType() == 3) { // json 聚合
+            LOG.i(this, "Parse【Type：3】  聚合解析接口，三方播放聚合网站？没搞懂，但是配置的url只能是Demo");
             setTip("正在解析播放地址", true, false);
             parseThreadPool = Executors.newSingleThreadExecutor();
             LinkedHashMap<String, HashMap<String, String>> jxs = new LinkedHashMap<>();
@@ -1156,6 +1173,9 @@ public class PlayFragment extends BaseLazyFragment {
                                     Iterator<String> keys = hds.keys();
                                     while (keys.hasNext()) {
                                         String key = keys.next();
+                                        if (headers == null) {
+                                            headers = new HashMap<>();
+                                        }
                                         headers.put(key, hds.getString(key));
                                     }
                                 } catch (Throwable th) {
@@ -1273,6 +1293,7 @@ public class PlayFragment extends BaseLazyFragment {
     }
 
     void stopLoadWebView(boolean destroy) {
+        if (mActivity == null) return;
         requireActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {

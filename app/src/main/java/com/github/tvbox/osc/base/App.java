@@ -12,11 +12,13 @@ import com.github.tvbox.osc.util.CrashManagerUtil;
 import com.github.tvbox.osc.util.EpgNameFuzzyMatch;
 import com.github.tvbox.osc.util.AppManager;
 import com.github.tvbox.osc.util.EpgUtil;
+import com.github.tvbox.osc.util.FileUtils;
 import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.util.OkGoHelper;
 import com.github.tvbox.osc.util.PlayerHelper;
 import com.github.tvbox.osc.util.RemoteConfig;
+import com.github.tvbox.osc.util.TTSService;
 import com.github.tvbox.osc.util.js.JSEngine;
 import com.kingja.loadsir.core.LoadSir;
 import com.orhanobut.hawk.Hawk;
@@ -36,6 +38,8 @@ public class App extends MultiDexApplication {
     public void onCreate() {
         // bugly
         CrashManagerUtil.getInstance(this).init();
+        // tts
+        TTSService.getInstance().init(this);
 
         super.onCreate();
         instance = this;
@@ -59,6 +63,7 @@ public class App extends MultiDexApplication {
                 .setSupportSubunits(Subunits.MM);
         PlayerHelper.init();
         JSEngine.getInstance().create();
+        FileUtils.cleanPlayerCache();
     }
 
     private void initParams() {
